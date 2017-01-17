@@ -69,3 +69,21 @@
                 :lm-name "Eagle"
                 :orbits 30
                 :evas 2))
+
+;; Sometimes it may be needed to derive values expected by a constructor from a function
+;; Let's assume that the Planet entity constructor is expecting an orbital-eccentricity
+;; derived from a vector
+(defn euclidian-form [ecc-vector]
+  ;; For the sake of simplicity, the euclidian-form will just multiply each vector element
+  ;; by itself
+  (map #(* % %) ecc-vector))
+
+;; The Planet entity is expecting the #orbital-eccentricity as the last parameter, which is
+;; to be derived from a vector provided to the constructor using the euclidian-form function
+;; defined earlier
+(defrecord Planet [name moons volume mass aphelion perihelion orbital-eccentricity])
+
+(defn make-Planet
+  "Make a planet from field values and an eccentricity vector"
+  [name moons volume mass aphelion perihelion ecc-vector]
+  (->Planet name moons volume mass aphelion perihelion (euclidian-form ecc-vector)))
