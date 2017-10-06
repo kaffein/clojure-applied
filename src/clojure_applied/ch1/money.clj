@@ -54,7 +54,7 @@
 ;; This function mulitplies the Money (m) entity value by n
 (defn *$
   [m n]
-  (* (:amount m) n) (:currency m))
+  (->Money (* (:amount m) n) (:currency m)))
 
 ;; This is a convenient constructor allowing for sensible defaults when currency and/or amounts
 ;; are not provided by the caller.
