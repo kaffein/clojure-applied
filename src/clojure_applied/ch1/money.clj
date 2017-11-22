@@ -69,3 +69,14 @@
 
 ;; When destructuring by position, values likely to be used are placed earlier in the argument
 ;; list which is constraining
+
+;; Sometimes, we may be tempted to represent zero quantity or any empty container with a function
+;; returning the same value when called like so
+(defn new-money
+  "$0.00 usd"
+  []
+  (->Money 0 :usd))
+
+;; It is easier though, to take advantage of Clojure's immutable values and to, instead, return
+;; a "value" rather than a function
+(def zero-dollars (->Money 0 :usd))
