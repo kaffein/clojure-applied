@@ -31,3 +31,20 @@
                      ingredients :- [Ingredient]
                      steps :- [s/Str]
                      servings :- s/Int])
+
+;; In Schema, it is even possible to use a variation of defn to spec' function input
+;; parameters and return types in the same way a statically-typed language specifies
+;; its parameters and return types. They are used to generate helpful docstrings
+(s/defn add-ingredients :- Recipe
+  [recipe :- Recipe & ingredients :- [Ingredient]]
+  (update-in recipe [:ingredients] into ingredients))
+
+;; when calling the docstring (doc) function on the add-ingredients function, the
+;; following output is returned
+
+;; (doc ch1.validate/add-ingredients)
+;; -------------------------
+;; ch1.validate/add-ingredients
+;; ([recipe & ingredients])
+;; Inputs: [recipe :- Recipe & ingredients :- [Ingredient]]
+;; Returns: Recipe
