@@ -24,3 +24,14 @@
 
 ;; There is a flaw though, our implementation breaks if we try to search for 'nil'
 ;; or 'false' since they are logically fals(e)-y values...
+
+;; A relatively efficient implementation of a search that can stop early in the process
+;; for any fals(e)-y value it matches can be achieved with the following snippet
+(defn contains-val?
+  [coll val]
+  (reduce
+    (fn [ret elem]
+      (if (= val elem)
+        (reduced true)
+        ret))
+    false coll))
