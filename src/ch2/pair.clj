@@ -38,7 +38,8 @@
 
 ;; We then first begin by importing those traits
 (ns ch2.pair
-  (import [clojure.lang Seqable Counted Indexed ILookup]))
+  (import [clojure.lang Seqable Counted Indexed ILookup]
+          [java.io Writer]))
 
 ;; In Clojure, there are two (2) ways of defining types :
 ;;  - defrecord (seen earlier in ch2/modeling.clj)
@@ -105,3 +106,72 @@
 ;=> :a
 ;(get p 3)
 ;IllegalArgumentException   ch2.pair.Pair (pair.clj:77)
+;p
+;=> #object[ch2.pair.Pair 0xca6913c "ch2.pair.Pair@ca6913c"]
+
+
+;; on the last line of this REPL session though, we tried to display p. The REPL
+;; then displayed the default representation of the type which consists
+;; in the class name and an identifier. Not very usable nor obvious at first sight.
+;; We would like to change that so that it displays a more human-readable representation
+;; but also one that the underlying Clojure evaluation mechanism can understand.
+
+;; In Clojure, there is a mechanism that allows converting a textual representation of
+;; a data type, i.e a literal representation, to actual internal Clojure data, understood
+;; by the underlying interpretation machinery.
+
+;; This is the same mechanism used by the REPL. In fact, the actual R and E in REPL stand for :
+;;  - R : read-ing the textual representation from the input (*out* by default) via
+;;        the 'read-str' function.
+;;  - E : converting the textual representation to Clojure data and eval-uating that data
+;;        as a Clojure expression.
+
+;; if the R-eading mechanism allows converting from textual data representation to actual
+;; Clojure data to be fed into the REPL, there is an equivalent but opposite operation that
+;; allows converting a Clojure internal data representation to the actual textual representation.
+;; The 'pr-str' function does just that. This function is based on the 'pr' function whose
+;; documentation states its use as :
+
+; (doc pr)
+; -------------------------
+; clojure.core/pr
+; ([] [x] [x & more])
+; Prints the object(s) to the output stream that is the current value
+; of *out*.  Prints the object(s), separated by spaces if there is
+; more than one.  By default, pr and prn print in a way that objects
+; can be read by the reader
+
+;; The whole 'print'-ing mechanism is supported by an open system with multimethods defining
+;; two (2) main functions that has to be implemented :
+;;  * print-method : for displaying a user/human-readable representation
+;;  * print-dup : for displaying a 'reader'(CLJ machinery)-readable representation
+
+;; for the sake of example, we will print the same thing for both functions
+(defmethod print-method Pair
+  [pair ^Writer writer]
+  (.write writer "#ch2.pair.Pair")
+  (print-method (vec (seq pair)) writer))
+
+
+(defmethod print-dup Pair
+  [pair ^Writer writer]
+  (print-method pair writer))
+
+;; Now on the REPL, if we define a Pair p...
+;(def p (->Pair 1 2))
+;=> #'user/p
+
+;; printing p now displays its Clojure data textual representation
+;p
+;=> #ch2.pair.Pair[1 2]
+
+;; To demonstrate that we can now go back and forth form textual
+;; representation to clojure data, we can take this textual representation to
+;; be fed as string to the 'reader' and be eval-ed
+;(read-string "#ch2.pair.Pair[1 2]")
+;=> #ch2.pair.Pair[1 2]
+
+;; To go further, we can even invoke the 'class' function on it to make
+;; sure its type/class is what we expect it to be, i.e a 'Pair'...
+;(class (read-string "#ch2.pair.Pair[1 2]"))
+;=> ch2.pair.Pair
