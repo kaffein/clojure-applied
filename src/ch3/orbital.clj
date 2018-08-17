@@ -113,3 +113,19 @@
   "Computes the total number of moons of the solar system using a transducer"
   [planets]
   (transduce xf-moon-count + 0 planets))
+
+;; Sometimes when reducing over a collection, we may want to stop the reduction early on in the process i.e without consuming
+;; every element in the collection. In that case, we can use the 'reduced' function, which takes as argument the value
+;; to be returned as the result of the reduction as illustrated in the following example :
+(defn find-planet
+  "Reduces over a collection but stops early on when it finds a planet whose name is the same as the name provided as argument
+   to the function"
+  [planets pname]
+  (reduce
+    (fn [_ planet] 
+      (when (= (:name planet) pname)
+        (reduced planet)))
+    planets))
+
+;; we can draw a parallel between 'reduced' and the use of 'break' in java with the addition that the former, instead of
+;; just stopping the process early, also returns a value/result. Let's say that 'reduced' is 'break on steroids' ...
