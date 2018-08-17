@@ -81,3 +81,35 @@
   "This function returns a list"
   [planets star]
   (into () (orbital-period-transformation star) planets))
+
+
+
+;; Reducing a collection consists in repeatedly applying a function to an accumulated value and the next item
+;; in the collection, hence consumming the collection and giving a value as a final result.
+;; A optional value, also known as a 'seed' can be provided as the first initial value of the accumulator.
+;; Sometimes, like in the case of the 'into' function, we get back a collection as a final result instead of a
+;; single value : 'into' is a specialization of reduce
+
+;; as an example, let's say that we would like to compute the number of moon of our solar system.
+;; It involves :
+;;   - getting the planets collection as input
+;;   - extracting for each planet its moon count (hence a tranformation operation via map)
+;;   - and combining each planets moon count (hence a reduction operation via +)
+(defn total-moons
+  "Computes the total number of moons of the solar system"
+  [planets]
+  (reduce + 0 (map #(:moons %) planets)))
+   ;; or with a more idiomatic version of the map portion
+   ;; (reduce + 0 (map :moons planets))
+
+;; We can also achieve the same result using a transducer. As seen earlier, transducers are an elaboration on the
+;; idea of reducers with the added-value of having transformations abstracted away from the implementation details of the
+;; input and output. It means that in the previous example, we could have abstracted away the transformation part (via map)
+;; which could then be reused in other contexts.
+(def xf-moon-count
+  (map :moons))
+
+(defn total-moons-transduced
+  "Computes the total number of moons of the solar system using a transducer"
+  [planets]
+  (transduce xf-moon-count + 0 planets))
