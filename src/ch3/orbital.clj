@@ -168,3 +168,20 @@
   "Computes the total number of moons from all entities which are planets in the input sequence"
   [entities]
   (reduce + 0 (map :moons (filter planet? entities))))
+
+;; the 'total-moons-filtered' function written above works pretty well but the nesting structure of the code due to function composition may be
+;; a little bit hard to read. Fortunately, Clojure has a macro construct called 'thread-last' allowing us to refactor deeply-nested function call
+;; into an ordered sequence of transformations which is definitely more readable.
+
+;; the thread-last macro ->> works by first piping the initial input into the first transformation function as its last argument, it then takes
+;; the result of that transformation and pipes it into the next transformation function in the pipeline as its last argument and so on until it
+;; has exhausted all the transformation functions provided in the pipeline.
+;; Refactoring the above function would then give :
+(defn total-moons-threaded-last
+  "Computes the total number of moons from all entities which are planets in the input sequence with the help
+  of thread-last macro to provide a cleaner and more readable implementation"
+  [entities]
+  (->> entities                                             ;; the initial input is piped into filter as its last argument
+       (filter planet?)                                     ;; which gives (filter planet? entities) which in turn is piped into map as its last argument
+       (map :moons)                                         ;; which gives (map :moons (filter planet? entities)) which in turn is piped into reduce as its last argument
+       (reduce + 0)))                                       ;; which finally returns (reduce + 0 (map :moons (filter planet? entities))), the very same line we had in 'total-moons-filtered'
