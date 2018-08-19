@@ -185,3 +185,18 @@
        (filter planet?)                                     ;; which gives (filter planet? entities) which in turn is piped into map as its last argument
        (map :moons)                                         ;; which gives (map :moons (filter planet? entities)) which in turn is piped into reduce as its last argument
        (reduce + 0)))                                       ;; which finally returns (reduce + 0 (map :moons (filter planet? entities))), the very same line we had in 'total-moons-filtered'
+
+
+;; The sequence version of the total moons computation, given the way we have implemented it (filter, map then reduce), actually creates intermediate
+;; sequences which are the results of applying successively : filter and map. If the input size is too big, this can lead to performance issues.
+;; Instead, we can try to refactor the code to use transducers since instead of creating intermediate sequences, they only create a single transformation
+;; compound. In addition to that, as seen earlier, transducers allow us to abstract away and compose/stack/reuse those transformation pipelines in
+;; different contexts.
+(def xf-moon-transform
+  (comp (filter planet?) (map :moons)))
+
+(defn total-moons-filtered-transduced
+  "Computes the total number of moons from all entities which are planets in the input sequence with the help
+  of an externally-defined transducer"
+  [entities]
+  (transduce xf-moon-transform + 0 entities))
