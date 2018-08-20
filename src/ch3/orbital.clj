@@ -129,3 +129,74 @@
 
 ;; we can draw a parallel between 'reduced' and the use of 'break' in java with the addition that the former, instead of
 ;; just stopping the process early, also returns a value/result. Let's say that 'reduced' is 'break on steroids' ...
+
+
+;; At other times, we may also need to go through a sequence of elements and only retain those having some specific criteria.
+;; Let's say that for the sake of our example, instead of being provided with a planet sequence, we are provided with a list of
+;; entities (planets, comets, stars etc). Though, we still want to compute the total number of moons for those entities knowing
+;; that only planets have moons.
+;; In that case, he have to first 'filter' the input entities sequence to only retain planets, then after we have to extract for each
+;; its :moons attribute (via a transformation operation using 'map') and then finally we have to reduce with the + reduction function
+;; to get the total number of moons.
+;; The filter operation is achieved with the function of the same name and it takes as an input a 'predicate' function and an element
+;; to be qualified which will be each element of the input sequence until the filter operation has exhausted it.
+
+;; (doc filter)
+;-------------------------
+;clojure.core/filter
+;([pred] [pred coll])
+;  Returns a lazy sequence of the items in coll for which
+;  (pred item) returns true. pred must be free of side-effects.
+;  Returns a transducer when no collection is provided.
+
+;; a predicate is a function which takes only one argument and returns a truthy value as a result (either true or false). Its role is to
+;; determine whether the element given as its input is to be retained or not according to the criterion defined for the filtering process.
+;; if (pred e) returns true, the element will be part of the result sequence otherwise it will not be part of the returned sequence.
+
+(defn planet?
+  "Returns true if the provided entity is a planet, otherwise returns false"
+  [entity]
+  (instance? Planet entity))
+
+;; as stated earlier, a predicate is a function taking an argument and returning a truthy value. Here, we defined one and the convention in
+;; Clojure is to have a ? as the last character of the function name which really conveys the idea of asking whether the argument to the
+;; predicate complies with the criteria defined within the predicate.
+;; There are also many other pre-defined predicates in the Clojure standard library and they all have the same naming scheme e.g odd?, even?,
+;; pos? etc.
+
+(defn total-moons-filtered
+  "Computes the total number of moons from all entities which are planets in the input sequence"
+  [entities]
+  (reduce + 0 (map :moons (filter planet? entities))))
+
+;; the 'total-moons-filtered' function written above works pretty well but the nesting structure of the code due to function composition may be
+;; a little bit hard to read. Fortunately, Clojure has a macro construct called 'thread-last' allowing us to refactor deeply-nested function call
+;; into an ordered sequence of transformations which is definitely more readable.
+
+;; the thread-last macro ->> works by first piping the initial input into the first transformation function as its last argument, it then takes
+;; the result of that transformation and pipes it into the next transformation function in the pipeline as its last argument and so on until it
+;; has exhausted all the transformation functions provided in the pipeline.
+;; Refactoring the above function would then give :
+(defn total-moons-threaded-last
+  "Computes the total number of moons from all entities which are planets in the input sequence with the help
+  of thread-last macro to provide a cleaner and more readable implementation"
+  [entities]
+  (->> entities                                             ;; the initial input is piped into filter as its last argument
+       (filter planet?)                                     ;; which gives (filter planet? entities) which in turn is piped into map as its last argument
+       (map :moons)                                         ;; which gives (map :moons (filter planet? entities)) which in turn is piped into reduce as its last argument
+       (reduce + 0)))                                       ;; which finally returns (reduce + 0 (map :moons (filter planet? entities))), the very same line we had in 'total-moons-filtered'
+
+
+;; The sequence version of the total moons computation, given the way we have implemented it (filter, map then reduce), actually creates intermediate
+;; sequences which are the results of applying successively : filter and map. If the input size is too big, this can lead to performance issues.
+;; Instead, we can try to refactor the code to use transducers since instead of creating intermediate sequences, they only create a single transformation
+;; compound. In addition to that, as seen earlier, transducers allow us to abstract away and compose/stack/reuse those transformation pipelines in
+;; different contexts.
+(def xf-moon-transform
+  (comp (filter planet?) (map :moons)))
+
+(defn total-moons-filtered-transduced
+  "Computes the total number of moons from all entities which are planets in the input sequence with the help
+  of an externally-defined transducer"
+  [entities]
+  (transduce xf-moon-transform + 0 entities))
