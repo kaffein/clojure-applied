@@ -32,3 +32,28 @@
   "Return the content of the current page and the remaining in the source in a tuple"
   [source page-size]
   (split-at page-size source))
+
+
+;; There are other variations on the use of take, drop and split-at where instead of providing the element counts to be
+;; removed/retained, we specify a predicate which takes as argument each element of the collection and returns a truthy value
+;; (true/false) in order to decide whether the element is to be retained/dropped. These variations are 'take-while', 'drop-while',
+;; and 'split-with'.
+;; It is often recommended to combine a sorting step prior to using the predicated functions since the processing stops as soon as
+;; it encounters the first element for which the predicates return false.
+
+;; let's for example retain only any positive number from within a range, here coll
+(def coll (vec (range 10 -3 -1)))
+;; => [10 9 8 7 6 5 4 3 2 1 0 -1 -2]
+
+(take-while pos? coll)
+;; => (10 9 8 7 6 5 4 3 2 1)
+
+;; let's now drop any positive number from within that same range, which would then retain only the last few numbers at the end of the
+;; range which are negative
+(drop-while pos? coll)
+;; => (0 -1 -2)
+
+;; at last, using split-at with the same pos? predicate would provide us with a tuple whose first element would be the result of applying
+;; take-while and the second element would be the result of applying drop-while to the initial collection.
+(split-with pos? coll)
+;; => [(10 9 8 7 6 5 4 3 2 1) (0 -1 -2)]
