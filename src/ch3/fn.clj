@@ -112,3 +112,69 @@
 ;  {:name "Jupiter", :moons ["io" "europa" "ganymede" "callisto"], :volume 1231545}
 ;  {:name "Earth", :moons ["moon"], :orbit-days 365.2564, :volume 2531545}
 ;  {:name "Mars", :orbit-days 686.93, :volume 9231545})
+
+
+
+;; 'group-by' is another very useful function. It allows grouping elements of a collection by applying a function f to each to define
+;; the 'keys' to the map containing the groupings, and the groupings themselves will be any element from the collection,
+;; for which the application of the function f to it i.e (f element) will match the key.
+
+;; as an example, we can group the planets of our solar system by the first character in their name with
+(defn index-planets
+  "Groups planets by the first character in their name"
+  [planets]
+  (group-by #(first (:name %)) planets))
+
+;; which, with the following collection :
+;(def planets
+;  [{:name "Uranus" :moons ["titania" "oberon"], :orbit-days 30688.5},
+;   {:name "Saturn" :moons ["titan"] :orbit-days 10755.7},
+;   {:name "Earth" :moons ["moon"] :orbit-days 365.2564},
+;   {:name "Neptune" :moons ["triton"] :orbit-days 60148.35},
+;   {:name "Jupiter" :moons ["io" "europa" "ganymede" "callisto"]}
+;   {:name "Mercury" :orbit-days 87.969}
+;   {:name "Mars" :orbit-days 686.93}
+;   {:name "Venus" :orbit-days 224.7}
+;   {:name "Pluto" :moons ["charon" "styx" "nix" "kerberos" "hydra"]}]
+;  )
+
+;; would give :
+;{\U [{:name "Uranus", :moons ["titania" "oberon"], :orbit-days 30688.5}],
+; \S [{:name "Saturn", :moons ["titan"], :orbit-days 10755.7}],
+; \E [{:name "Earth", :moons ["moon"], :orbit-days 365.2564}],
+; \N [{:name "Neptune", :moons ["triton"], :orbit-days 60148.35}],
+; \J [{:name "Jupiter", :moons ["io" "europa" "ganymede" "callisto"]}],
+; \M [{:name "Mercury", :orbit-days 87.969} {:name "Mars", :orbit-days 686.93}],
+; \V [{:name "Venus", :orbit-days 224.7}],
+; \P [{:name "Pluto", :moons ["charon" "styx" "nix" "kerberos" "hydra"]}]}
+
+;; note the special case where if we provide a 'predicate' (i.e a function returning only two possible values true or false), instead of
+;; a regular function (which may potentially generate more than two keys for the groupings), we only get two (2) groupings and our function
+;; behave `almost` like 'split-with' in terms of processing results. In fact, we would then have one grouping for the elements satisfying
+;; the predicate and another grouping for the rest. The added value is that unlike 'split-with', group-by does not stop the processing
+;; when it reaches the first element not satisfying the predicate. It continues the processing until it has exhausted the input collection.
+;; That is also the reason why it is necessary to have a sorting step before using split-with if we want to get an almost identical results
+;; as group-by.
+
+;; let's say for example that we would like to retrieve the planets having moons. Let's define a predicate function to allow us to determine
+;; whether a planet has moons or not
+(defn has-moons?
+  "Returns true if the planet has moons, otherwise false"
+  [planet]
+  (pos? (count (:moons planet))))                           ;; We diverted a little bit from the Planet record definition we had in ch1 here
+                                                            ;; that's why we have the 'count' call on the :moons attribute...
+
+;; we would then define the function allowing us to group planets having and those not having moons...
+(defn split-moon
+  "Splits planets between those having and those not having moons"
+  [planets]
+  (group-by has-moons? planets))
+
+;; which, given the same data we had earlier, would return :
+;{true [{:name "Uranus", :moons ["titania" "oberon"], :orbit-days 30688.5}
+;       {:name "Saturn", :moons ["titan"], :orbit-days 10755.7}
+;       {:name "Earth", :moons ["moon"], :orbit-days 365.2564}
+;       {:name "Neptune", :moons ["triton"], :orbit-days 60148.35}
+;       {:name "Jupiter", :moons ["io" "europa" "ganymede" "callisto"]}
+;       {:name "Pluto", :moons ["charon" "styx" "nix" "kerberos" "hydra"]}],
+; false [{:name "Mercury", :orbit-days 87.969} {:name "Mars", :orbit-days 686.93} {:name "Venus", :orbit-days 224.7}]}
