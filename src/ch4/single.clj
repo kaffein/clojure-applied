@@ -68,3 +68,15 @@
 ;;
 ;; a `state` is a snapshot of an `identity's` value and it represents its value at that particular time. There is
 ;; a notion of temporality involved here.
+
+
+;; UNIFIED UPDATE MODEL
+;; Clojure's approach to modelling and managing `values that change` is opinionated and to some extent, is really simple in
+;; essence. In fact, it relies on a concept called the `unified update model` which is a generic `form pattern`
+;; involving the `reference` which represents the `identity` as we have seen, a function for updating the identity's
+;; state called the `data function` and `arguments` used by the data function in conjunction with the reference's
+;; current value to compute the reference's new value (state).
+;; Depending on the problem at hand, the `reference` type may vary, but the syntax and approach to handling the update
+;; remains the same and always follows the same pattern.
+
+;; (update-fn container-ref data-fn &args)
