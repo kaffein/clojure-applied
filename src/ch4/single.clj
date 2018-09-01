@@ -55,3 +55,16 @@
 ;; values, a series of snapshots as if it were its `history` allowing to go back at a certain point in time
 ;; to a particular `state`, at will. Hence this `non-destructive` approach eases the process of changing state
 ;; because of the `immutability` nature of the data structure involved.
+
+
+
+;; ID AND STATE
+;; Clojure being a functional programming language embracing `immutability` as we have seen earlier, it is important
+;; to talk about `identity` and `state` and how they relate to each other to get a grasp of how it approaches
+;; and handles state management.
+;;
+;; an `identity` is a serie of `states` separated in time. It is represented by a `reference`, which is a mutable
+;; container containing a succession of immutable values (successive `states`)
+;;
+;; a `state` is a snapshot of an `identity's` value and it represents its value at that particular time. There is
+;; a notion of temporality involved here.
