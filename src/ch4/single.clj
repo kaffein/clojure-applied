@@ -78,5 +78,14 @@
 ;; current value to compute the reference's new value (state).
 ;; Depending on the problem at hand, the `reference` type may vary, but the syntax and approach to handling the update
 ;; remains the same and always follows the same pattern.
-
+;;
 ;; (update-fn container-ref data-fn &args)
+
+;; `update-fn` triggers the update process and is solely determined by the type of `reference` (atom, ref, var, agent)
+;; whose value is to be updated.
+;; `container-ref` is the reference name which represents the `identity` whose value is to be updated
+;; `data-fn` is a function allowing the processing of the value to be set as the new value of the `identity`. It takes
+;; the current value of the `container-ref` as its first argument and eventually additional arguments provided to the
+;; `update-fn` call in its `args` argument.
+;; `args` (optional) are arguments provided to the `data-fn` in addition to the current value of the `container-ref` to
+;; process the value to be set as its new value.
