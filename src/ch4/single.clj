@@ -78,8 +78,10 @@
 ;; current value to compute the reference's new value (state).
 ;; Depending on the problem at hand, the `reference` type may vary, but the syntax and approach to handling the update
 ;; remains the same and always follows the same pattern.
-;;
+
+
 ;; (update-fn container-ref data-fn &args)
+
 
 ;; `update-fn` triggers the update process and is solely determined by the type of `reference` (atom, ref, var, agent)
 ;; whose value is to be updated.
@@ -89,3 +91,21 @@
 ;; `update-fn` call in its `args` argument.
 ;; `args` (optional) are arguments provided to the `data-fn` in addition to the current value of the `container-ref` to
 ;; process the value to be set as its new value.
+
+
+;; There are two (2) dimensions involved when choosing the `right` reference type for the unified update model
+;;  - a notion of `scope` defining to which extent the change has to be applied
+;;  - a notion of `temporality` defining when the change has to be applied
+
+
+;; ATOMIC SCOPE
+;; It occurs when a single `standalone` value is changed `independently` of all other stateful references within the system.
+;; It then does not require `coordination` because of this independence.
+;; The way it works is that given an identity and an update function, the latter is applied to the current value of the
+;; former, eventually with arguments (seen earlier) to calculate the new value of the identity. If everything goes well,
+;; this newly processed value will replace the current identity value.
+;; Problem occur though when multiple threads try to update the same identity in the same time. The mechanism then reorders
+;; the updates so that only one at a time occurs. That is, if a thread is on the verge of committing the identity newly
+;; created value but a second thread has updated it in the same time, then the first thread has to renew/retry the overall
+;; process of calculating the identity new value but this time taking into account the current value of the identity as
+;; the newly committed value set by the second thread.
