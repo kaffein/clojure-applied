@@ -98,8 +98,10 @@
 ;;  - a notion of `temporality` defining when the change has to be applied
 
 
+;; There are (2) scopes : atomic and transactional
+
 ;; ATOMIC SCOPE
-;; It occurs when a single `standalone` value is changed `independently` of all other stateful references within the system.
+;; It is used when a single `standalone` value is changed `independently` of all other stateful references within the system.
 ;; It then does not require `coordination` because of this independence.
 ;; The way it works is that given an identity and an update function, the latter is applied to the current value of the
 ;; former, eventually with arguments (seen earlier) to calculate the new value of the identity. If everything goes well,
@@ -109,3 +111,29 @@
 ;; created value but a second thread has updated it in the same time, then the first thread has to renew/retry the overall
 ;; process of calculating the identity new value but this time taking into account the current value of the identity as
 ;; the newly committed value set by the second thread.
+
+
+;; TRANSACTIONAL SCOPE
+;; It is used when multiple identities or stateful references have to change their values `together`. These multiple changes
+;; have to happen altogether or not at all, hence the `transactional` qualification reminding us the terminology used in
+;; RDBMS. Because of this `interdependence`, there needs to be a `coordination` when changing the stateful references values.
+;; In Clojure, this coordination is supported by an `emulation` of the very same techniques encountered in database management
+;; systems when dealing with `updates` via `transactions`, to ensure all changes happen altogether or not at all.
+;; Clojure's flavor is called `Software Transactional Memory` and it has almost the same ACI(D) properties except for the
+;; `Durability` property which is not relevant since everything is done `in memory` as the name STM suggests.
+;; The way it works is that when the transaction starts, it takes the `initial value` of the identities involved and considers
+;; these as their `real` value (i.e system-wide) within the scope of the transaction. As the transaction progresses, it
+;; executes the instructions to process the new values of the identities and in the same time it keeps track of their
+;; `original value`, when they entered the transaction.
+;; When the transaction reaches its `end`, it has the choice of `committing` the new values it has calculated to be the new
+;; values of the identities and make them available system-wide (among all threads within the system).
+;; It then compares the identities `original` values that it kept tracking during the course of the transaction, with the
+;; current value of these same identities outside the transaction i.e system-wide. If they are still `the same`, it means that
+;; no other threads have updated them and the transaction can then `commit` or `write` the values it calculated within its scope
+;; as the new values of the identities.
+;; Otherwise, if the original values of the identities as they entered the transaction is not equal to their `real` values outside the
+;; scope of the transaction at the end of it when it tries to commit the new values, then it probably means that some other
+;; threads within the system may have already committed some other values to these identities. The transaction then has to
+;; restart but this time, it takes the values of the identities `updated outside` its scope as the initial value of these
+;; identities and whose values conditions the `committing` or not of the new calculated values as the new values of the identity
+;; system-wide.
