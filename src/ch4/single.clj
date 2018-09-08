@@ -94,15 +94,16 @@
 
 
 ;; There are two (2) dimensions involved when choosing the `right` reference type for the unified update model
-;;  - a notion of `scope` defining to which extent the change has to be applied
-;;  - a notion of `temporality` defining when the change has to be applied
+;;  - a notion of `scope` defining to which extent the change has to be applied also referred to as COORDINATION
+;;  - a notion of `temporality` and `context` defining when and in which context the change has to be applied also referred to
+;; as SYNCHRONIZATION
 
 
 ;; There are (2) scopes : atomic and transactional
 
 ;; ATOMIC SCOPE
 ;; It is used when a single `standalone` value is changed `independently` of all other stateful references within the system.
-;; It then does not require `coordination` because of this independence.
+;; It then does not require `coordination` because of this independence. We can also qualify it as an UNCOORDINATED operation.
 ;; The way it works is that given an identity and an update function, the latter is applied to the current value of the
 ;; former, eventually with arguments (seen earlier) to calculate the new value of the identity. If everything goes well,
 ;; this newly processed value will replace the current identity value.
@@ -117,6 +118,7 @@
 ;; It is used when multiple identities or stateful references have to change their values `together`. These multiple changes
 ;; have to happen altogether or not at all, hence the `transactional` qualification reminding us the terminology used in
 ;; RDBMS. Because of this `interdependence`, there needs to be a `coordination` when changing the stateful references values.
+;; That is why we can also qualify it as a COORDINATED operation.
 ;; In Clojure, this coordination is supported by an `emulation` of the very same techniques encountered in database management
 ;; systems when dealing with `updates` via `transactions`, to ensure all changes happen altogether or not at all.
 ;; Clojure's flavor is called `Software Transactional Memory` and it has almost the same ACI(D) properties except for the
@@ -137,3 +139,14 @@
 ;; restart but this time, it takes the values of the identities `updated outside` its scope as the initial value of these
 ;; identities and whose values conditions the `committing` or not of the new calculated values as the new values of the identity
 ;; system-wide.
+
+
+;; There are (2) kinds of `temporality/context` notions : Synchronous vs Asynchronous
+
+;; SYNCHRONOUS
+;; These operations are used when the caller's thread of execution has to block/wait for an exclusive access to a context in order
+;; to perform the operation.
+
+;; ASYNCHRONOUS
+;; Asynchronous operations, instead of blocking/waiting for an exclusive access to a context, spins off another thread to get
+;; a different context of its own for the execution. It does not block the caller's thread.
