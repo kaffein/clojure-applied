@@ -150,3 +150,17 @@
 ;; ASYNCHRONOUS
 ;; Asynchronous operations, instead of blocking/waiting for an exclusive access to a context, spins off another thread to get
 ;; a different context of its own for the execution. It does not block the caller's thread.
+
+
+
+
+;; TOOLS FOR MANAGING CHANGES a.k.a Reference types
+;; The two (2) concepts `coordination` and `synchronization` and their `duals` let us define exactly the type of concurrent operations
+;; that we would like to achieve, hence the `reference type` to be used as well. Considering the duals then, we have 3 of the 4 kinds
+;; of `reference type` :
+;;   - Coordinated and Synchronous : REFS reference type
+;;   - Coordinated and Asynchronous : this one does not exist in Clojure since it is only interested in addressing in-memory concurrency
+;; whereas `Coordinated and asynchronous` semantics is more common in distributed systems where changes are only guaranteed to merge
+;; into a unified model over time and potentially spanning over multiple systems beyond the local in-process system.
+;;   - Uncoordinated and Synchronous : ATOM reference type
+;;   - Uncoordinated and Asynchronous : AGENT reference type
