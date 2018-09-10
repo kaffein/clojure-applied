@@ -164,3 +164,7 @@
 ;; into a unified model over time and potentially spanning over multiple systems beyond the local in-process system.
 ;;   - Uncoordinated and Synchronous : ATOM reference type
 ;;   - Uncoordinated and Asynchronous : AGENT reference type
+
+;; There is a fourth reference type that is different from the (3) we have seen so far : `Var`s.
+;; `Var` differs from the other reference types in that their state is not managed in time. Rather, they provide a namespace-scoped identity
+;; that can be `rebound` to have a different value on a `per-thread` basis.
