@@ -168,3 +168,27 @@
 ;; There is a fourth reference type that is different from the (3) we have seen so far : `Var`s.
 ;; `Var` differs from the other reference types in that their state is not managed in time. Rather, they provide a namespace-scoped identity
 ;; that can be `rebound` to have a different value on a `per-thread` basis.
+
+
+;; Manipulating `Reference type`s
+;; There are 3 main operations for manipulating reference type values/state and for each, a corresponding function. Note that, as seen with
+;; the Unified Update Model, these function calls have a `consistent` syntax and follow the same `pattern` :
+;;  - Identity Initialization with the correct `reference type` via a `creation function`
+;;    Pattern : (create-fn container)
+;;  - Identity value update with an `update function` as seen with the `Unified Update Model` seen earlier
+;;    Pattern : (update-fn container data-fn & args)
+;;  - Identity value reset with a `set function`
+;;    Pattern : (set-fn container new-val)
+
+;; `Reference type`   |   `create-fn`   |   `update-fn`           |    `set-fn`             |
+;; ==========================================================================================
+;;  Atom              |   (atom ...)    |   (swap! ...)           |    (reset! ...)         |
+;;  Ref               |   (ref ...)     |   (alter ...)           |    (ref-set ...)        |
+;;                    |                 |   (commute ...)         |                         |
+;;  Var               |   (def ...)     |   (alter-var-root ...)  |    (var-set ...)        |
+;;  Agent             |   (agent ...)   |   (send ...)            |    (restart-agent ...)  |
+;;                    |                 |   (send-off ...)        |                         |
+
+
+;; In the end, the choice for a concurrent implementation consists in reflecting and deciding what information to manage and what information
+;; to leave unmanaged.
