@@ -192,3 +192,23 @@
 
 ;; In the end, the choice for a concurrent implementation consists in reflecting and deciding what information to manage and what information
 ;; to leave unmanaged.
+
+
+
+
+;; MANAGING UPDATES WITH ATOM
+;; Let's walk through an example : a grocery store.
+;; In its simplest form, shopping only consists in having a list of items to be bought and a person (a thread) going to the store to get the items.
+
+(defn go-shopping-naive
+  "Returns a cart containing the list of bought items"
+  [shopping-list]
+  (loop [[item & items] shopping-list
+         cart []]
+    (if item
+      (recur items (conj cart item))
+      cart)))
+
+;; This scenario does not involve state management because we only have one `thread` (person) interacting with the program. Furthermore, in the example,
+;; the items rest on a infinite shelf and the program only consists in moving items from one list to another.
+;; In a more elaborate version though (and in the real world), we would probably have a kind of `store inventory` containing the store `available` items.
