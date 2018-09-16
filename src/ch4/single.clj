@@ -212,3 +212,24 @@
 ;; This scenario does not involve state management because we only have one `thread` (person) interacting with the program. Furthermore, in the example,
 ;; the items rest on a infinite shelf and the program only consists in moving items from one list to another.
 ;; In a more elaborate version though (and in the real world), we would probably have a kind of `store inventory` containing the store `available` items.
+
+;; Our hypothetical inventory would be represented by a map of entities to quantities. It can potentially be accessed by multiple threads (person) so
+;; we have to ensure that any changes that we apply to the inventory become available to the other threads via the use of a reference type.
+;; For choosing the reference type, we have to go through a funneling process where we :
+;;  - determine the number of entities involved in order to know whether we need `coordination` or not
+;;  - determine whether changes are to be applied immediately or at some point in the future to know whether we need a `synchronous` operation or an
+;; `asynchronous` one.
+;;
+;; So here are the questions that can help us in the decision-making related to the choice of the reference type :
+;;  - are multiple entities involved ?
+;; the answer is NO since we only have to manage an inventory. It also means that we do not need coordinated reference type, so we get rid of `refs` in
+;; our choices because what we need is an `uncoordinated` reference type.
+;;
+;;  - are the changes to happen right away or can they happen at some point in the future ?
+;; the answer is, the changes have to happen `right away` in order for the other threads to see consistent data and not partially updated ones. It means
+;; that the reference type that we have to use is a `synchronous` one.
+;;
+;; in the end then, we need both a :
+;;  - `uncoordinated`
+;;  - `synchronous`
+;; reference type which according to the reference type classification we had earlier corresponds to `atom`s.
