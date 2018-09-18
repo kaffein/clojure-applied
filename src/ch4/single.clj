@@ -46,7 +46,7 @@
 ;; to the `head` of the list, let's call it (X). If we want the removal of this linked list head element for
 ;; example, we create a `totally new` reference (Y) which, instead of a real removal of the linked list head, will
 ;; just point to the element of the linked-list pointed to by (X), right after the `head`. The original
-;; linked-listed pointed to by (X) is still available and it shares a subpart of its structure with the new
+;; linked-listed pointed to by (X) is still available and it shares a sub-part of its structure with the new
 ;; linked-listed pointed to by (Y).
 
 ;; As a consequence, entities supported and implemented with `immutable` data structures act as containers
@@ -107,7 +107,7 @@
 ;; The way it works is that given an identity and an update function, the latter is applied to the current value of the
 ;; former, eventually with arguments (seen earlier) to calculate the new value of the identity. If everything goes well,
 ;; this newly processed value will replace the current identity value.
-;; Problem occur though when multiple threads try to update the same identity in the same time. The mechanism then reorders
+;; Problem occurs though when multiple threads try to update the same identity at the same time. The mechanism then reorders
 ;; the updates so that only one at a time occurs. That is, if a thread is on the verge of committing the identity newly
 ;; created value but a second thread has updated it in the same time, then the first thread has to renew/retry the overall
 ;; process of calculating the identity new value but this time taking into account the current value of the identity as
@@ -171,7 +171,7 @@
 
 
 ;; Manipulating `Reference type`s
-;; There are 3 main operations for manipulating reference type values/state and for each, a corresponding function. Note that, as seen with
+;; There are 3 main operations for manipulating reference type values/states and for each, a corresponding function. Note that, as seen with
 ;; the Unified Update Model, these function calls have a `consistent` syntax and follow the same `pattern` :
 ;;  - Identity Initialization with the correct `reference type` via a `creation function`
 ;;    Pattern : (create-fn container)
@@ -190,8 +190,8 @@
 ;;                    |                 |   (send-off ...)        |                         |
 
 
-;; In the end, the choice for a concurrent implementation consists in reflecting and deciding what information to manage and what information
-;; to leave unmanaged.
+;; In the end, the choice for a concrete implementation consists in reflecting and deciding on which information to manage and which information
+;; to leave un-managed.
 
 
 
