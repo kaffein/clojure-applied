@@ -80,3 +80,44 @@
 ;(stock :salt)
 ;=> {:banana 6, :butter 2, :salt 1, :pizza 3, :juice 3}
 
+
+;; Now that we have everything set and tested, we can now re-work our `go-shopping-naive` function from single.clj
+(defn shop-for-item
+  "Shop for an item from the inventory and return the updated cart"
+  [cart item]
+  (if (grab item)
+    (conj cart item)
+    cart))
+
+(defn go-shopping
+  "Return the list of purchased items"
+  [shopping-list]
+  (reduce shop-for-item [] shopping-list))
+
+;; We even allowed ourselves to be `idiomatic` by having the `loop` replaced with a higher-level construct :
+;; `reduce`.
+;; Given the example inventory we had earlier :
+; (init items)
+; => {:banana 7, :butter 2, :salt 1, :pizza 3, :juice 3}
+
+;; shopping for banana, salt and juice would give us our cart content updated with these items :
+; (go-shopping [:banana :salt :juice])
+; => [:banana :salt :juice]
+
+;; and listing what is available within the inventory would give us the content minus the items
+;; we put in our cart :
+; @inventory
+; => {:banana 6, :butter 2, :salt 0, :pizza 3, :juice 2}
+
+;; At this stage, trying to grab another salt item would give us the following exception :
+; (go-shopping [:salt])
+; IllegalStateException Invalid reference state  clojure.lang.ARef.validate (ARef.java:33)
+
+;; our validation function triggered its logic to ensure that there are no items whose count is negative,
+;; in the inventory. Since we did not have any salt item left (count = 0), the validation-function did not
+;; allow the operation of grabbing one from the inventory to occur.
+
+;; at this stage, if we check again the content of the inventory, we see that the previous content has not been
+;; updated because of the exception thrown by the validation function :
+; @inventory
+; => {:banana 6, :butter 2, :salt 0, :pizza 3, :juice 2}
