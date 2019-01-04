@@ -121,3 +121,21 @@
 ;; updated because of the exception thrown by the validation function :
 ; @inventory
 ; => {:banana 6, :butter 2, :salt 0, :pizza 3, :juice 2}
+
+
+;; We have seen earlier the use of `validation functions` as a way to ensure that data within the system
+;; remain coherent if a change is applied to a reference type value, but also to prevent such operation from
+;; occuring if applying the new value may cause inconsistencies within the system.
+;; Here, we introduce `watches` as a way to get notified when the actual changes to the reference type value
+;; has been applied i.e the new value has been assigned to the reference type.
+;; `watches` are nothing more than an implementation of the `Observer pattern` in OOP but Clojure's FP flavor of
+;; it is simpler and easier to grasp and use.
+
+;; So what exactly is a `watch` : it simply is a function taking four parameters :
+;; (defn watch-fn [watch-key reference old-value new-value] ,,,)
+;; The last three parameters are self-explanatory. The `key` is used as a label or an ID that identifies the watch
+;; function among other watch functions attached to the reference type. In fact, you can attach more than one
+;; watch function to a reference and the `key` allows us to refer to a particular watch function in order
+;; to update (add-watch) or remove (remove-watch) it from the reference for example.
+;; Each time the value of the reference changes, i.e : old-value is different from new-value, the reference
+;; watch functions are triggered.
