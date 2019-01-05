@@ -133,9 +133,43 @@
 
 ;; So what exactly is a `watch` : it simply is a function taking four parameters :
 ;; (defn watch-fn [watch-key reference old-value new-value] ,,,)
-;; The last three parameters are self-explanatory. The `key` is used as a label or an ID that identifies the watch
-;; function among other watch functions attached to the reference type. In fact, you can attach more than one
-;; watch function to a reference and the `key` allows us to refer to a particular watch function in order
+;; The last three parameters are self-explanatory. The `watch-key` is used as a label or an ID that identifies the watch
+;; function among other watch functions attached to the reference. In fact, you can attach more than one
+;; watch function to a reference and the `watch-key` allows us to refer to a particular watch function in order
 ;; to update (add-watch) or remove (remove-watch) it from the reference for example.
-;; Each time the value of the reference changes, i.e : old-value is different from new-value, the reference
-;; watch functions are triggered.
+;; Each time the value of the reference changes, i.e : `old-value` is different from `new-value`, all watch functions
+;; attached to the reference are triggered.
+
+;; As an illustration, let's now say that we would like to be able to have a record of all grabbed items (let's call
+;; it `sold-items`) from the inventory but also be notified that a 'restock' is needed.
+;; We first define the `sold-items` reference
+(def sold-items (atom {}))
+
+;; we then implement a watch function, let's call it `restock-order`, that will be attached to our `inventory` reference.
+(defn restock-order
+  "A watch function that notifies that an item restock is needed."
+  [k r old-value new-value]
+  (doseq [item (for [item-key (keys old-value)
+                     :when (not= (item-key old-value) (item-key new-value))] item-key)]
+    ;; we first record the grabbed item (from the inventory) into the sold-items reference
+    (swap! sold-items update-in [item] (fnil inc 0))
+    (println "A restock is needed for" item)))
+
+;; let's label the watch function with the :restock key
+(add-watch inventory :restock restock-order)
+; => #object[clojure.lang.Atom 0x74cb5dbe {:status :ready, :val {:banana 3, :butter 2, :salt 0, :pizza 3, :juice 2}}]
+
+;; let's make sure that our watch function has actually been attached to our `inventory` reference, we can invoke :
+; (.getWatches inventory)
+; => {:restock #object[user$restock_order 0xee0aaf5 "user$restock_order@ee0aaf5"]}
+
+;; Now if we go shopping for :banana, we get notified as we grab the item from the inventory :
+; (go-shopping [:banana])
+; A restock is needed for :banana
+; => [:banana]
+
+;; checking `sold-items` and `inventory` references content respectively, gives :
+; @sold-items
+; => {:banana 1}
+; @inventory
+; => {:banana 2, :butter 2, :salt 0, :pizza 3, :juice 2}
