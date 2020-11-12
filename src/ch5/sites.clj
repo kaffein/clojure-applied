@@ -59,3 +59,63 @@
 (eager-query-time-machine-sites ["Los Angeles", "San Diego", "New York"])
 (query-time-machine-sites ["Los Angeles", "San Diego", "New York"])
 ;; The second expression should take something like 6 seconds to complete
+
+
+;; The downside of using `future`s like we did until now is that the off-thread 
+;; computation can only return a single value back to the original code (here the sequence).
+;; What if we wanted to return multiple values at different points of the computation ?
+;; Well actually, Clojure has a built-in construct for these cases called `promise`
+
+;; A `promise` is a thread-safe object that can encapsulate an immutable value. Unlike
+;; other reference types like var, atom and refs, a `promise` is at creation a barren
+;; container to which a process/thread delivers a value (as a result of a computation
+;; for example) at some later point in time.
+;; It is like a mailbox to which the mailman delivers a parcel. It might be empty but at
+;; some point, your hardly acquired terminator poster will be delivered to you in that
+;; mailbox.
+;; In fact, even the function used to put the value in the `promise` is called `deliver`.
+;; Retrieving the value encapsulated inside the `promise` uses the same semantics as the
+;; reference types we have seen so far : using `deref`. If the value has not been delivered
+;; yet, the deref-ing thread will block until it is available. If that is a situation we
+;; want to avoid the we can either :
+;; - use a `deref` (instead of @) which has a notion of `timeout` allowing a calling thread
+;; to unblock and get a `timeout-val` if the timeout has been reached while waiting for
+;; the delivery of the value
+;; - use the `realized?` method to check whether the value has been delivered to the promise
+
+;; Let's now have some illusration about how we could use this in our Terminator series.
+;; Let's suppose that Skynet want to send two terminators back in 1983 and 1997 to respectively
+;; terminate Sarah Connor and John Connor.
+;; At some point in time, Skynet would want the status of each mission. We will use `promise`s
+;; to illustrate those.
+
+(defn terminate
+  [target year]
+  ;; let's pretend that it is easier to terminate someone way back in time...
+  (Thread/sleep (* 2 year))
+  {:target target :status (rand-nth [:escaped :terminated])})
+
+;; We then send our killer robots back in time (in a future :P)
+(defn send-terminators
+  []
+  (let [john-mission-status (promise)
+        sarah-mission-status (promise)]
+    (future
+      (println "Sending a T-X in 1997 to kill John Connor!!!")
+      ;; sending the John mission status back to skynet
+      (deliver john-mission-status (terminate "John" 1997)))
+    (future
+      (println "Sending a T-1000 in 1983 to kill Sarah Connor!!!")
+      ;; sending the Sarah mission status back to skynet
+      (deliver sarah-mission-status (terminate "Sarah" 1984)))
+
+    ;; at some point in time, skynet would want to know the outcome of the missions
+    ;; (Here we are blocking while waiting for the responses)
+    (println "John mission : " @john-mission-status)
+    (println "John mission : " @sarah-mission-status)))
+
+;; ON THE REPL : Sarah has been terminated but fortunately John is still alive ...
+;; > Sending a T-X in 1997 to kill John Connor!!!
+;; > Sending a T-1000 in 1983 to kill Sarah Connor!!!
+;; > John mission :  {:target John, :status :terminated}
+;; > John mission :  {:target Sarah, :status :escaped}
