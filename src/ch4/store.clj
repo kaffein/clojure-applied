@@ -173,3 +173,129 @@
 ; => {:banana 1}
 ; @inventory
 ; => {:banana 2, :butter 2, :salt 0, :pizza 3, :juice 2}
+
+
+;; Sometimes, `transactionality` can be a requirement when updating reference types. For e.g to ensure that
+;; values of multiple refs are to be udpated altogether because they are interdependent.
+;; When multiple reference values need to be changed `transactionally` and in a `synchronous fashion`, we use `ref`s.
+;; `ref` used within the context of a transaction allows the update of a reference value and ensures that the changes
+;; occur altogether or not-at-all. This latter case occurs when a value entering the transaction context is modified
+;; by another external concurrently running operation trying to modify the same `ref`s.
+;; In fact, as values enter the context of a transaction, their values are stored within the context of that transaction
+;; and will be used as a `checkpoint` by comparing the `ref`s stored values with their most up-to-date values, when the
+;; transaction (at the end) is about to commit the newly processed values for the involved `ref`s . If at some point
+;; any of the `ref`s values stored within the transaction is not equal to its value in the running process, because some
+;; other external concurrent running operation may have updated it in the context of another transaction, then a `retry`
+;; is triggered. A `retry` consists in re-running the aborted transaction but by taking into account the new externally-modified
+;; `ref`s values.
+
+;; Let's take an example from the shopping scenario we had so far. Given a list of items to be shopped we divide our shopping
+;; list among children and then send them out to collect things. Of course, this assumes that all of our children have the same
+;; attention span and will do their best to find the items on their lists, not get distracted, and not bring anything else back.
+;; If all of this is true, then we can expect things to go swimmingly. In reality, things are a little bit different. When they
+;; return, they put their assigned item—and maybe some candy—in the cart and receive their next assignment. Our more focused
+;; gophers will do more work, but the items get crossed off the list eventually.
+;;
+;;
+;; The key to making the shopping work is then to have clear rules and being able to enforce them like with the following :
+;;  • An item in the shopping list gets crossed off when it’s assigned to a child.
+;;  • An item remains assigned to a child until it’s placed in the cart.
+;;  • Candy isn’t allowed in the shopping list or in the cart.
+;; These rules also state (by deduction) that the 'cart' and 'shopping list' have to be updated together in the same context
+;; or not at all when an item is recovered (or not). Some transactionality has the to be introduced when modifying these
+;; two references which means we need to use `ref`s to represent these elements.
+
+;; First of all, let's define the needed references for our scenario :
+(def shopping-list (ref #{}))                               ;; we use a set to ensure uniqueness of shopping items
+(def shopping-cart (ref #{}))
+(def assigned-items (ref #{}))
+
+(def kids #{:alice :bobby :cindy :donnie})
+
+;; We first state that every kid is available to receive an assignment
+(def availability-map (ref (into {} (map (juxt identity (constantly true)) kids))))
+;; @availability-map
+;=> {:alice true, :bobby true, :cindy true, :donnie true}
+
+(defn available-kids
+  "Returns a set of currently available kids"
+  []
+  (reduce-kv #(if %3 (conj % %2) %) [] @availability-map))
+
+(defn next-kid
+  "Returns the next kid available to grab an item"
+  []
+  (loop
+    [av (available-kids)]
+    (if (not-empty av)
+      (rand-nth (available-kids))
+      (do (Thread/sleep 500)
+          (recur (available-kids))))))
+
+(defn buy-candy
+  "Grabs a candy and put it in the shopping cart"
+  []
+  (dosync
+    ;; no need to use `alter` here since we only have one operation and hence no operation
+    ;; ordering involved
+    (commute shopping-cart conj (rand-nth #{"candy bar" "gum drops" "toy"}))))
+
+;; Let's also init the store shelves with some items
+(defn init-store
+  "Init store"
+  []
+  (init {:eggs   2 :bacon 3 :apples 3
+         :candy  5 :soda 2 :milk 1
+         :bread  3 :carrots 1 :potatoes 1
+         :cheese 3})
+
+  ;; Modifying `ref`s involves changing them in the context of a transaction. The `dosync` macro introduces and marks
+  ;; the boundaries of such transaction. Every instructions contained within the `dosync` macro are then executed atomically
+  ;; in an all-or-nothing fashion.
+  (dosync
+    (ref-set shopping-list #{:milk :butter :bacon :eggs
+                             :carrots :potatoes :cheese :apples})
+    (ref-set shopping-cart #{})
+    (ref-set assigned-items #{})))
+
+;; There are 3 ways (and their matching-function) to update a reference value within the context of a transaction :
+;;  * `ref-set` is used to directly replace the value of a `ref`. Its main use is for initialization.
+;;  * `alter` is used when an `update` function is provided to process the new `ref` value
+;;  * `commute` is used like `alter` except that it does not require the operations to be applied in the same order as they
+;; are declared within the context of the transaction i.e when the order of operations does not matter since they are 'commutative'.
+
+;; Let's for example illustrate the action of assigning an item to be grabbed to a child
+(defn assign-item-to-child
+  "Assigns an item on the shopping list to a child"
+  [child item]
+  (dosync
+    ;; we first tag the child as not available since he/she has been assigned the task of
+    ;; grabbing a new item
+    (alter availability-map update-in [child] (fn [_] false))
+    ;; we then add the item to the list of already-assigned items
+    (alter assigned-items conj item)))
+
+(defn maybe? [f] (if (= 0 (rand-int 3)) (f)))
+
+(defn dawdle
+  "screw around, get lost, maybe buy candy"
+  []
+  (Thread/sleep (rand-int 10000))
+  (maybe? buy-candy))
+
+(defn send-kid
+  "Sends a kid for an item"
+  [kid item]
+  (assign-item-to-child kid item))
+
+;; Recovering an item from a child works in a very similar way
+(defn recover-item-from-child
+  "Recovers item, tags child as available and puts the item in the shopping cart"
+  [item child]
+  (dosync
+    ;; When recovering, we first add the item to the shopping cart
+    (alter shopping-cart conj item)
+    ;; we then tag the child as available for a new item grabbing
+    (alter availability-map update-in [child] (fn [_] true))
+    ;; and last we remove the recovered item from the assigned item
+    (alter assigned-items disj item)))
