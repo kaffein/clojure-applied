@@ -63,3 +63,46 @@
 ;; > REPL output
 ;; Processing from internal chan :  #uuid "b529c9ea-b6b6-4d6d-a988-dd780f31d532"
 
+;;##################################################################################
+;; core.async provides different types of channel connectors. We are going to review
+;; them in terms of :
+;; - direct connections
+;; - fan in
+;; - fan out
+
+;; DIRECT CONNECTIONS
+;; Two components having internally-defined channels can be connected together with
+;; `pipe`.
+;; Let's for e.g define two components, one producing a sequence, exposing an output
+;; channel and another exposing an input channels to receive the elements generated
+;; from those channels.
+
+(defn make-name-processor
+  "A processor internally producing a sequence of characters name"
+  []
+  (let [main-characters ["Sarah Connor" "John Connor" "Kyle Reeves"]
+        output-channel (async/chan (async/dropping-buffer 10))]
+    (async/go-loop [m main-characters]
+      (>! output-channel m) ; we are sending character's name over the output channel
+      (recur (rest main-characters)))
+    output-channel)) ; we are exposing the output channel for any external components to pick up values from
+
+(defn make-uppercase-processor
+  "A processor acting as a sink, receiving elements from the first component and 
+  upper-casing each"
+  []
+  (let [input-channel (async/chan (async/dropping-buffer 10))]
+    (async/go
+      (if-let [v (<! input-channel)]
+        (println (clojure.string/upper-case v))))
+    input-channel))
+
+;; we can then `pipe` the output of the name processor to the splitter processor
+(let [name-processor-out-channel (make-name-processor)
+      name-uppercase-in-channel (make-uppercase-processor)]
+  (async/pipe name-processor-out-channel name-uppercase-in-channel))
+
+;; > REPL OUTPUT
+;; ["SARAH CONNOR" "JOHN CONNOR" "KYLE REEVES"]
+
+
