@@ -252,3 +252,8 @@
 ;; alerting proc :  {:model :t1000, :type :terminator}
 ;; Counting proc :  {:model :t1000, :type :terminator}
 ;; ...
+
+;; IMPORTANT : Notice the use of `dropping-buffer` channels for the downstream
+;; channels. It is important since it allows the downstream processes to not be
+;; overwhelmed with even more messages if it can not keep up with its processing.
+;; This will allow the system to continue working and not crash.
