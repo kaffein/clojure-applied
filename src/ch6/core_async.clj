@@ -160,7 +160,8 @@
   [input-chan]
   (async/split human? input-chan (async/dropping-buffer 1) (async/dropping-buffer 1)))
 
-;; We now need to set up the input channel `split`-ing and the receiving processes
+;; We now need to split up the input channel using `split` and also set up
+;; the receiving processes
 (let [[human-chan machine-chan] (split-channel detection-input-chan)]
   (async/go-loop []
     (println "Human identified : " (:firstname (<! human-chan)))
@@ -190,3 +191,64 @@
 ;; user>
 
 
+;; Let's now suppose that instead of having some specialized components up front,
+;; the Resistance has some internal components that need to receive all information
+;; regarding any entity that enters its territory.
+;; For the sake of example, let's say that :
+;; - one component is responsible for logging all info regarding an entity entering
+;; the Resistance territory.
+;; - another one could be responsible for triggering an alert if a :terminator has
+;; entered the zone
+;; - and finally, the last one could be used to count the number of entity having
+;; entered the territory.
+
+;; Since those components need to apply different processing to the entirety of the
+;; messages from the input channel, they all need the copies of information
+;; received by the input channel. Thus the use of `mult` allows us to provide
+;; multiple channels that will then receive those messages and will be used as the
+;; input channels of those components.
+
+;; Let's define the main input channel on which the messages will be put up in
+;; the stream
+(def main-chan (async/chan (async/dropping-buffer 2)))
+
+;; To receive the messages from the main channel, the 3 downstream channels have to
+;; `tap` into the `mult` defined on it.
+
+(defn mult-channel
+  "Mults a channel and returns the downstream channels for processors to consume"
+  [input-chan]
+  (let [m (async/mult input-chan)
+        logging-chan (async/tap m (async/chan (async/dropping-buffer 2)))
+        alerting-chan (async/tap m (async/chan (async/dropping-buffer 2)))
+        counting-chan (async/tap m (async/chan (async/dropping-buffer 2)))]
+    [logging-chan alerting-chan counting-chan]))
+
+(let [[logging-chan alerting-chan counting-chan] (mult-channel main-chan)]
+  ;; let's define 3 simple processes for those downstream channels
+  (async/go-loop []
+    (println "Logging proc : " (<! logging-chan))
+    (recur))
+
+  (async/go-loop []
+    (println "alerting proc : " (<! alerting-chan))
+    (recur))
+
+  (async/go-loop []
+    (println "Counting proc : " (<! counting-chan))
+    (recur)))
+
+(async/go
+  (doseq [mc main-characters]
+    (println "Sending to mult : " mc)
+    (>! main-chan mc)))
+
+;; > REPL OUTPUT : we can see that the 3 processors receive the same messages
+;; Sending to mult :  {:model :t1000, :type :terminator}
+;; Sending to mult :  {:firstname Kyle, :lastname Reeves, :type :human}
+
+;; ... (removed since some log lines were interwined due to the concurrent nature of ops
+;; Logging proc :  {:model :t1000, :type :terminator}
+;; alerting proc :  {:model :t1000, :type :terminator}
+;; Counting proc :  {:model :t1000, :type :terminator}
+;; ...
