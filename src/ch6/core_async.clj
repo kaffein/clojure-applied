@@ -257,3 +257,73 @@
 ;; channels. It is important since it allows the downstream processes to not be
 ;; overwhelmed with even more messages if it can not keep up with its processing.
 ;; This will allow the system to continue working and not crash.
+
+
+;; Let's finally consider the case where a channel wants to `tap` into an upstream channel
+;; but only to receive messages that are appropriate for its usage, instead of receiving 
+;; everything like with the previous example and having the downstream processor doing the
+;; filtering of the messages.
+;; core.async provides a `pub/sub` abstraction that allows just that. In this scheme, an
+;; input channel is `publish`-ed based on a `topic-fn`. The `topic-fn` is a function applied
+;; to the message and allowing the system to determine what `topic` the flowing message belongs
+;; to before publishing the message on the `topic`. The `topic` is then like a partitioned message
+;; queue which is `specialized` in one type of message.
+;; 
+;; On the downstream side, one or many channels `sub`-sribe to those `topic`s and receive
+;; any message that are published by the upstream channel to that particular topic.
+
+;; For the sake of example, let's say that we now want to be able to push incoming messages
+;; to topics based on their :type (either :human, :terminator or :unknown) and have
+;; channels specialized and thus subscribing to those `topic`s.
+
+;; let's define a new type of entity and a new upstream channel
+(def aliens
+  [{:name "ET"
+    :type :unknown}
+   {:name "Predator"
+    :type :unknown}])
+
+(def entity-chan (async/chan (async/dropping-buffer 2)))
+
+;; like in the previous example, let's create a pub from an upstream input channel and
+;; have a 3 subscribing channels.
+
+(defn sub-channel
+  "Subs a main channel and returns the downstream subs for processors to consume"
+  [input-chan]
+  (let [p (async/pub input-chan :type)
+        human-chan (async/sub p :human (async/chan (async/dropping-buffer 2)))
+        machine-chan (async/sub p :terminator (async/chan (async/dropping-buffer 2)))
+        unknown-chan (async/sub p :unknown (async/chan (async/dropping-buffer 2)))] ;; we discriminate on :type since keywords are fn in Clojure
+    [human-chan machine-chan unknown-chan]))
+
+;; Let's now create the processors for those topic channels
+(let [[human-chan machine-chan unknown-chan] (sub-channel entity-chan)]
+  (async/go-loop []
+    (println "Human identified : " (:firstname (<! human-chan)))
+    (recur))
+
+  (async/go-loop []
+    (println "Hostile entity identified : " (:model (<! machine-chan)))
+    (recur))
+
+  (async/go-loop []
+    (println "Unknown entity detected : " (:name (<! unknown-chan)))
+    (recur)))
+
+;; Finally, we feed the data as usual to the upstream input channel
+(async/go
+  (doseq [mc (into main-characters aliens)]
+    (>! entity-chan mc)))
+
+;; > REPL OUTPUT
+;; Human identified :  John
+;; Human identified :  Kyle
+;; Human identified :  Sarah
+;; Hostile entity identified :  :t1000
+;; Unknown entity detected :  ET
+;; Hostile entity identified :  :tx
+;; Unknown entity detected :  Predator
+;; user>
+
+;; every processor is now specialized and only receives an entity of the kind it is interested in.
