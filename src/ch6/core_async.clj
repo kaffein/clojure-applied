@@ -327,3 +327,67 @@
 ;; user>
 
 ;; every processor is now specialized and only receives an entity of the kind it is interested in.
+
+
+;; FAN-IN (MANY-TO-ONE)
+;; In addition to fan-out, core.async also provides support for `fan-in` i.e the ability
+;; to aggregate multiple channels into one. There are two abstractions available in the lib :
+;; - `merge` : allows multiple channels traffic to be combined into a single linear output stream.
+;; A merged channel can not be modified after it has been created.
+;; - `mix` : allows for more sophisticated use cases. In fact, it is possible to control the
+;; multiple input channels by `pausing`, `muting/unmuting` or `soloing` each independently using
+;; the `toggle` function. It is also to set the  `solo-mode` (either :mute or :pause)
+;; on the output channel allowing the solo-ed input channels to be muted or paused.
+
+;; Let's say for e.g that we have three channels as upstream channels, each streaming
+;; specific data based on their :type (they could have been retrieved from `topics`)
+
+(def machine-chan (async/chan (async/dropping-buffer 2)))
+(def human-chan (async/chan (async/dropping-buffer 2)))
+(def unknown-chan (async/chan (async/dropping-buffer 2)))
+
+;; we are going to merge those channels into an output channel, from which we are going
+;; to extract values. This time, we will use functions to make the combination and to
+;; show that defining them outside the combining function or component is more flexible
+;; since we have full control over their creation and configuration.
+
+(defn merge-chans
+  "Merge channels and returns a single output channel combining the traffic into
+  a single linear stream"
+  [machine-chan human-chan unwknown-chan]
+  (async/merge [machine-chan human-chan unwknown-chan] (async/dropping-buffer 10)))
+
+;; we are now going to feed each upstream channel with the data knowing that each
+;; is specialized with only one type of data
+(let [hs (filter #(= (:type %) :human) main-characters)
+      ms (filter #(= (:type %) :terminator) main-characters)
+      as aliens
+      merged-chans (merge-chans machine-chan human-chan unknown-chan)]
+  ;; specialized input stream
+  (async/go
+    (doseq [h hs]
+      (>! human-chan (merge h {:from :human-chan}))))
+
+  (async/go
+    (doseq [m ms]
+      (>! machine-chan (merge m {:from :machine-chan}))))
+
+  (async/go
+    (doseq [a as]
+      (>! unknown-chan (merge a {:from :unknown-chan}))))
+
+  ;; and the last processor will extract from the output channel merged-chans
+  (async/go-loop []
+    (println "Received :" (<! merged-chans))
+    (recur)))
+
+;; > REPL OUTPUT
+;; Received : {:model :t1000, :type :terminator, :from :machine-chan}
+;; Received : {:name ET, :type :unknown, :from :unknown-chan}
+;; Received : {:name Predator, :type :unknown, :from :unknown-chan}
+;; Received : {:model :tx, :type :terminator, :from :machine-chan}
+;; Received : {:firstname John, :lastname Connor, :type :human, :from :human-chan}
+;; Received : {:firstname Sarah, :lastname Connor, :type :human, :from :human-chan}
+
+;; We can see that each item has been enriched through their respective input channels
+;; with the additional :from field and that they have been received by the output
