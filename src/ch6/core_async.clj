@@ -391,3 +391,156 @@
 
 ;; We can see that each item has been enriched through their respective input channels
 ;; with the additional :from field and that they have been received by the output
+
+
+;; let's now consider a case where we would like to aggregate those input channels
+;; but also allow some of them to be `muted` or `paused` for e.g.
+;; The first thing to do is to define our different upstream and output channels.
+
+(def m-human-chan (async/chan (async/dropping-buffer 2)))
+(def m-machine-chan (async/chan (async/dropping-buffer 2)))
+(def m-unknown-chan (async/chan (async/dropping-buffer 2)))
+
+(def m-out-chan (async/chan (async/dropping-buffer 2)))
+
+;; we will then use `mix` to create that output stream and `admix` to add an input
+;; channel to the mix.
+(defn mix-chans
+  "Takes multiples channels as input and mixes them into one."
+  [human-chan machine-chan unknown-chan out-chan]
+  (let [mixed-chan (async/mix out-chan)]
+    ;; we then add all the input stream channels into the mix
+    (async/admix mixed-chan human-chan)
+    (async/admix mixed-chan machine-chan)
+    (async/admix mixed-chan unknown-chan)
+    ;; and finally we return the mixed-chan
+    mixed-chan))
+
+;; at this point if we feed those channels with data, the mixed-chan will behave
+;; like a normal `merge`d channel seen previously.
+(let [hs (filter #(= (:type %) :human) main-characters)
+      ms (filter #(= (:type %) :terminator) main-characters)
+      as aliens
+      mixed-chans (mix-chans m-human-chan m-machine-chan m-unknown-chan m-out-chan)]
+  ;; specialized input stream
+  (async/go
+    (doseq [h hs]
+      (>! m-human-chan h)))
+
+  (async/go
+    (doseq [m ms]
+      (>! m-machine-chan m)))
+
+  (async/go
+    (doseq [a as]
+      (>! m-unknown-chan a)))
+
+  ;; and we extract what have been pushed into the mixed output channel
+  (async/go-loop []
+    (println "Mixed in : " (<! m-out-chan))
+    (recur)))
+
+;; > REPL OUTPUT
+;; Mixed in :  {:lastname Connor, :type :human, :firstname John}
+;; Mixed in :  {:name Predator, :type :unknown}
+;; Mixed in :  {:name ET, :type :unknown}
+;; Mixed in :  {:lastname Connor, :type :human, :firstname Sarah}
+;; Mixed in :  {:lastname Reeves, :type :human, :firstname Kyle}
+;; Mixed in :  {:type :terminator, :model :t1000}
+;; Mixed in :  {:type :terminator, :model :tx}
+;; user>
+
+;; All items from the input channels are mixed in and retrieve on the output channel
+
+
+;; let's now rework it a little bit and see if we can remove one of the input channels
+;; from the mix. To do that, we can use the `unmix` function
+;;
+;; IMPORTANT: we have to reevaluate the channel definitions from earlier
+;; (def m-human-chan (async/chan (async/dropping-buffer 2)))
+;; (def m-machine-chan (async/chan (async/dropping-buffer 2)))
+;; (def m-unknown-chan (async/chan (async/dropping-buffer 2)))
+;; (def m-out-chan (async/chan (async/dropping-buffer 2)))
+
+(let [hs (filter #(= (:type %) :human) main-characters)
+      ms (filter #(= (:type %) :terminator) main-characters)
+      as aliens
+      mixed-chans (mix-chans m-human-chan m-machine-chan m-unknown-chan m-out-chan)]
+  ;; for the sake of e.g let's remove it here : we want to get rid of the aliens
+  ;; channels so that in the final output stream chan we do not have not :unknown type
+  ;; items
+  (async/unmix mixed-chans m-unknown-chan)
+  
+  ;; specialized input stream
+  (async/go
+    (doseq [h hs]
+      (>! m-human-chan h)))
+
+  (async/go
+    (doseq [m ms]
+      (>! m-machine-chan m)))
+
+  (async/go
+    (doseq [a as]
+      (>! m-unknown-chan a)))
+
+  ;; and we extract what have been pushed into the mixed output channel
+  (async/go-loop []
+    (println "Mixed in (without unknowns): " (<! m-out-chan))
+    (recur)))
+
+;; > REPL OUTPUT (no :unknowns in the final output channel)
+;; Mixed in (without unknowns):  {:type :terminator, :model :tx}
+;; Mixed in (without unknowns):  {:type :terminator, :model :t1000}
+;; Mixed in (without unknowns):  {:type :terminator, :model :tx}
+;; Mixed in (without unknowns):  {:lastname Connor, :type :human, :firstname John}
+;; Mixed in (without unknowns):  {:lastname Connor, :type :human, :firstname Sarah}
+
+
+;; finally, let's try to `mute`and `pause` two of the input stream channels.
+;; There is a little nuance between those two settings. A paused input stream channels's
+;; content will not be consumed. Instead, a muted input stream channel's content will be
+;; read but not included in the output stream channel.
+;;
+;; IMPORTANT: we have to reevaluate the channel definitions from earlier
+;; (def m-human-chan (async/chan (async/dropping-buffer 2)))
+;; (def m-machine-chan (async/chan (async/dropping-buffer 2)))
+;; (def m-unknown-chan (async/chan (async/dropping-buffer 2)))
+;; (def m-out-chan (async/chan (async/dropping-buffer 2)))
+
+(let [hs (filter #(= (:type %) :human) main-characters)
+      ms (filter #(= (:type %) :terminator) main-characters)
+      as aliens
+      mixed-chans (mix-chans m-human-chan m-machine-chan m-unknown-chan m-out-chan)]
+  ;; for the sake of e.g let's toggle the input channels here : we want to pause the aliens
+  ;; channels and mute the machines channel.
+  (async/toggle mixed-chans {m-machine-chan {:mute true}
+                             m-unknown-chan {:pause true}})
+  
+  ;; specialized input stream
+  (async/go
+    (doseq [h hs]
+      (>! m-human-chan h)))
+
+  (async/go
+    (doseq [m ms]
+      (>! m-machine-chan m)))
+
+  (async/go
+    (doseq [a as]
+      (>! m-unknown-chan a)))
+
+  ;; and we extract what have been pushed into the mixed output channel
+  (async/go-loop []
+    (println "Mixed in (:muted machines /:paused unknowns): " (<! m-out-chan))
+    (recur)))
+
+;; At this point, we should only retrieve item of type :human from the output stream
+;; channel
+
+;; > REPL OUTPUT
+;; Mixed in (with :muted machines and :paused unknowns):  {:lastname Connor, :type :human, :firstname John}
+;; Mixed in (:muted machines /:paused unknowns):  {:lastname Connor, :type :human, :firstname Sarah}
+;; Mixed in (with :muted machines and :paused unknowns):  {:lastname Reeves, :type :human, :firstname Kyle}
+;; user> 
+
