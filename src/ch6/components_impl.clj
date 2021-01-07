@@ -121,3 +121,8 @@
   ;; A channel offers more flexibility on how to connect this component with other components
   ;; as we have seen with what core.async is capable of...
   )
+
+;; Because of the need to store those information (configuration, internal state
+;; dependencies etc.) internally, `records` are the best choice to implement component
+;; because it allows to provide the component's `behaviour` as protocol implementations
+;; on those records.
