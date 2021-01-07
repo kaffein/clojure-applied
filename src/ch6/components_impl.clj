@@ -107,3 +107,17 @@
   ;; if needed, we can evolve the configuration without breaking the code since the
   ;; whole configuration is packed within this sole map parameter
   )
+
+;; Sometimes, component might need to rely on another component to accomplish some tasks.
+;; Thus there is a dependency among them.
+
+(comment
+
+  (defn new-skynet [config robot-builder])
+
+  ;; instead of providing the component as a `direct` dependency, the best practice is
+  ;; to `decouple` the components and use a channel which would then act as the
+  ;; dependency of the component. This way, we have a loose coupling between the components
+  ;; A channel offers more flexibility on how to connect this component with other components
+  ;; as we have seen with what core.async is capable of...
+  )
