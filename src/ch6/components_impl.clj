@@ -72,3 +72,38 @@
   )
 
 
+;; CONFIGURATION
+;; While implementing a component, it will need to hold information for startup and
+;; ongoing use. Typically, we can group those in the following 3 categories :
+;;  - configuration
+;;  - dependencies
+;;  - runtime state
+
+;; Configuration data is externally-provided to the component (by the `assembly`). It is
+;; passed to the component at `creation` time and can be used when the component has
+;; to be started or later. E.g : database connection, middleware systems conf etc. can all
+;; be part of the configuration.
+
+;; when creating the component, we can then pass those informations like so :
+(comment
+
+  (defn new-component [db-url username password])
+
+  ;; the issue with this is that configurations, most of the time, evolve over time. So
+  ;; at some point, it will consist of more than those 3 attributes : e.g an additional
+  ;; messaging system url might be added ...
+  ;; if we modify the new-component function by adding this extra parameter, every other
+  ;; caller component (most probably assembly though here) would then break and need to
+  ;; be updated with this extra param
+  )
+
+;; a much better solution is to actually bundle the configuration in a map or record
+;; like so :
+
+(comment
+
+  (defn new-component [{:keys [db-url username password message-system-url]}])
+
+  ;; if needed, we can evolve the configuration without breaking the code since the
+  ;; whole configuration is packed within this sole map parameter
+  )
