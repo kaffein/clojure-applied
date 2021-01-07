@@ -1,4 +1,6 @@
-(ns ch6.components-impl)
+(ns ch6.components-impl
+  (:require [clojure.core.async :as async
+             :refer [<! >! go-loop]]))
 
 ;; So far, we have seen how to call components via their api and how we can connect
 ;; them together. It is now time to see how to implement the functionality behind those
@@ -126,3 +128,55 @@
 ;; dependencies etc.) internally, `records` are the best choice to implement component
 ;; because it allows to provide the component's `behaviour` as protocol implementations
 ;; on those records.
+
+
+LIFECYCLE
+Components have lifecycle : they are first `created` and then can be `started` and/or `stopped`.
+Let's say for the sake of example that we have a component that is responsible for
+programming the terminators based on a set of rules.
+
+(comment
+
+  (defrecord skynet-bot-programming-component
+      [config ;; configuration
+       ch-in ;; for receiving information from other components
+       ch-out ;; output channel for sending information to other components
+       rules ;; the set of rules to apply for each model of robot
+       active ;; a flag for when the component is alive and ready to work
+       ])
+
+  ;; Most of the time, components need to do some initial setup on creation.
+  ;; Having a convenience function like the following helps with that step.
+  (defn make-bot-programming-component
+    [config ch-in ch-out rules]
+    (map->skynet-bot-programming-component {:config config
+                                            :ch-in ch-in
+                                            :ch-out ch-out
+                                            :rules (atom rules)
+                                            :active (atom false)})) ;; by default not active
+
+  ;; We then define the function for starting the component. It consists in establishing a
+  ;; go-block which will live throughout the life of the component and will attempt to take
+  ;; values from the input channel and do some processing before pushing the result to the
+  ;; output channel.
+  (defn start
+    [{:keys [ch-in ch-out rules active] :as skynet}]
+    (println "starting the component")
+    (reset! active true) ;; here we flag the component as active
+    (go-loop []
+        (let [request (<! ch-in)
+               model-id (:model request)
+              response (get rules model-id)]
+          (>! ch-out response))
+      (when @active (recur)))
+    skynet)
+
+  ;; finally, we can implement the function for stopping the component
+  (defn stop
+    [{:keys [ch-out active] :as skynet}] ;; we are only interested in closing ch-out and resetting active to false
+    (println "stopping the component")
+    (reset! active false) ;; set the component as non-active
+    (async/close! ch-out) ;; stop pushing responses
+    skynet)
+
+  )
