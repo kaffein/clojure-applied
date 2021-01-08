@@ -1,6 +1,6 @@
 (ns ch6.components-impl
   (:require [clojure.core.async :as async
-             :refer [<! >! go-loop]]))
+             :refer [<! >! go-loop go]]))
 
 ;; So far, we have seen how to call components via their api and how we can connect
 ;; them together. It is now time to see how to implement the functionality behind those
@@ -130,10 +130,10 @@
 ;; on those records.
 
 
-LIFECYCLE
-Components have lifecycle : they are first `created` and then can be `started` and/or `stopped`.
-Let's say for the sake of example that we have a component that is responsible for
-programming the terminators based on a set of rules.
+;; LIFECYCLE
+;; Components have lifecycle : they are first `created` and then can be `started` and/or `stopped`.
+;; Let's say for the sake of example that we have a component that is responsible for
+;; programming the terminators based on a set of rules.
 
 (comment
 
@@ -161,22 +161,141 @@ programming the terminators based on a set of rules.
   ;; output channel.
   (defn start
     [{:keys [ch-in ch-out rules active] :as skynet}]
-    (println "starting the component")
-    (reset! active true) ;; here we flag the component as active
-    (go-loop []
+    (when (not @active)
+      (println "Starting the *component*")
+      (reset! active true)
+          ;; and then we start a lightweight process which will handle the
+          ;; processing of any incoming message received from the ch-in
+      (go-loop []
         (let [request (<! ch-in)
-               model-id (:model request)
-              response (get rules model-id)]
-          (>! ch-out response))
-      (when @active (recur)))
+              _ (println "[>> comp] Received : " request)
+              model (-> request :model)
+              response (get @rules model :not-found)
+              _ (println "[|*| comp] Processing : " response)
+              processed-response (-> response name clojure.string/upper-case)]
+          (println "[comp >>] Sent out  : " processed-response)
+          (>! ch-out processed-response)
+          (when @active (recur))))) ;; here we flag the component as active
     skynet)
 
   ;; finally, we can implement the function for stopping the component
   (defn stop
     [{:keys [ch-out active] :as skynet}] ;; we are only interested in closing ch-out and resetting active to false
-    (println "stopping the component")
-    (reset! active false) ;; set the component as non-active
-    (async/close! ch-out) ;; stop pushing responses
+    (when @active
+      (println "Stopping the component")
+      (reset! active false)  ;; set the component as non-active
+      (async/close! ch-out)) ;; stop pushing responses
     skynet)
 
+  ;; our input to be sent to the component for processing
+  (def input [{:model :tx} {:model :t500}])
+
+  ;; our set of configuration
+  (def config {})
+  
+  ;; input and output channels for the component
+  (def ch-in (async/chan (async/dropping-buffer 2)))
+  (def ch-out (async/chan (async/dropping-buffer 2)))
+
+  ;; our set of rules
+  (def rules {:t1000 :init-t1000
+              :tx :init-tx
+              :t500 :initiate})
+
+  ;; we then create our component ... this is just creation giving us a `dead` component 
+  ;; waiting to be started!!!
+  (def c (make-bot-programming-component config ch-in ch-out rules))
+
+  ;; eval-ing the component allow us to check that indeed the component is not active yet!!
+  ;; :active #<Atom@35d574f5: false> as in the following
+  c
+  ;; > REPL OUTPUT
+  ;; user> *1
+  ;; {:config {},
+  ;;  :ch-in
+  ;;  #object[clojure.core.async.impl.channels.ManyToManyChannel 0x2e145c49 "clojure.core.async.impl.channels.ManyToManyChannel@2e145c49"],
+  ;;  :ch-out
+  ;;  #object[clojure.core.async.impl.channels.ManyToManyChannel 0x63d57182 "clojure.core.async.impl.channels.ManyToManyChannel@63d57182"],
+  ;;  :rules
+  ;;  #<Atom@7adcd5e4: 
+  ;;  {:t1000 :init-t1000, :tx :init-tx, :t500 :initiate}>,
+  ;;  :active #<Atom@35d574f5: false>}
+
+  ;; we then start the component via the function defined previously and we can see from the
+  ;; evaluation of c that the component is now active
+  ;; :active #<Atom@35d574f5: true> as in the following
+  (start c)
+  ;; > REPL OUTPUT
+  ;; Starting the component
+  ;; {:config {},
+  ;;  :ch-in
+  ;;  #object[clojure.core.async.impl.channels.ManyToManyChannel 0x2e145c49 "clojure.core.async.impl.channels.ManyToManyChannel@2e145c49"],
+  ;;  :ch-out
+  ;;  #object[clojure.core.async.impl.channels.ManyToManyChannel 0x63d57182 "clojure.core.async.impl.channels.ManyToManyChannel@63d57182"],
+  ;;  :rules
+  ;;  #<Atom@7adcd5e4: 
+  ;;  {:t1000 :init-t1000, :tx :init-tx, :t500 :initiate}>,
+  ;;  :active #<Atom@35d574f5: true>}
+
+  ;; if we try to eval the starting process at this point, nothing happens ... it is already
+  ;; started
+  (start c)
+
+  ;; if we stop it now ...
+  (stop c)
+  ;; > REPL OUTPUT
+  ;; Stopping the component
+  ;; user>
+
+  ;; and eval-ing the component should display that it is indeed inactive at this point
+  ;; :active #<Atom@35d574f5: false> as in the following
+  c
+  ;; user> *1
+  ;; {:config {},
+  ;;  :ch-in
+  ;;  #object[clojure.core.async.impl.channels.ManyToManyChannel 0x2e145c49 "clojure.core.async.impl.channels.ManyToManyChannel@2e145c49"],
+  ;;  :ch-out
+  ;;  #object[clojure.core.async.impl.channels.ManyToManyChannel 0x63d57182 "clojure.core.async.impl.channels.ManyToManyChannel@63d57182"],
+  ;;  :rules
+  ;;  #<Atom@7adcd5e4: 
+  ;;  {:t1000 :init-t1000, :tx :init-tx, :t500 :initiate}>,
+  ;;  :active #<Atom@35d574f5: false>}
+
+
+  ;; let's start it back up again...
+  (start c)
+  ;; > REPL OUTPUT
+  ;; Starting the component
+  
+  ;; let's now set up a lightweight process which will connect to the component output channel,
+  ;; extract and display messages received on this channel
+  (let [{:keys [ch-out]} c]
+    (println "Starting the consuming component...")
+    ;; our lightweight process extracting from the component's ch-out...
+    (go-loop []
+      (if-let [v (<! ch-out)]
+        (println "[>> sink consumer] : " v))
+      (recur)))
+
+  ;; we can now feed the component with the input we defined earlier and expect the lightweight
+  ;; process to display something on the console/repl
+  (let [{:keys [ch-in]} c]
+    (go
+      (doseq [i input]
+        (println "Feeding comp >> " i)
+        (>! ch-in i))))
+
+  ;; > REPL OUTPUT
+  ;; Starting the *component*
+  ;; Starting the consuming component...
+  ;; Feeding comp >>  {:model :tx}
+  ;; Feeding comp >>  {:model :t500}
+  ;; [>> comp] Received :  {:model :tx}
+  ;; [|*| comp] Processing :  :init-tx
+  ;; [comp >>] Sent out  :  INIT-TX
+  ;; [>> comp] Received :  {:model :t500}
+  ;; [ >> sink consumer] :  INIT-TX
+  ;; [|*| comp] Processing :  :initiate
+  ;; [comp >>] Sent out  :  INITIATE
+  ;; [ >> sink consumer] :  INITIATE
   )
